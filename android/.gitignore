@@ -26,3 +26,4 @@ build/
 *.db
 *.db-shm
 *.db-wal
+installer_output/
