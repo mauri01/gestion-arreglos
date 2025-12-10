@@ -1,0 +1,28 @@
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+*.lock
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Windows
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Archivos de usuario
+*.log
+*.db
+*.db-shm
+*.db-wal
