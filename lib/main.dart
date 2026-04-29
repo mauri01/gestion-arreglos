@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'database/database.dart';
 import 'screens/home_screen.dart';
 import 'services/update_service.dart';
@@ -9,7 +10,10 @@ import 'widgets/update_dialog.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Configurar ventana
+  // Precalentar shared_preferences ANTES de mostrar la ventana
+  // Esto evita la pantalla en blanco al iniciar
+  await SharedPreferences.getInstance();
+
   await windowManager.ensureInitialized();
 
   WindowOptions windowOptions = const WindowOptions(
@@ -47,7 +51,7 @@ class MyApp extends StatelessWidget {
             brightness: Brightness.light,
           ),
           useMaterial3: true,
-          cardTheme: CardThemeData(  // ← cardTheme, no cardThemeData
+          cardTheme: CardThemeData(
             elevation: 2,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -74,15 +78,28 @@ class AppWrapper extends StatefulWidget {
 }
 
 class _AppWrapperState extends State<AppWrapper> with WindowListener {
+  bool _listo = false;
+
   @override
   void initState() {
     super.initState();
     windowManager.addListener(this);
+    _inicializar();
+  }
 
-    // Verificar actualizaciones después de que se construya el widget
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _verificarActualizaciones();
-    });
+  Future<void> _inicializar() async {
+    // shared_preferences ya fue precalentado en main(),
+    // esta llamada es instantánea — sin espera real.
+    await SharedPreferences.getInstance();
+
+    if (mounted) {
+      setState(() => _listo = true);
+
+      // Verificar actualizaciones DESPUÉS de que la UI ya es visible
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _verificarActualizaciones();
+      });
+    }
   }
 
   @override
@@ -91,7 +108,6 @@ class _AppWrapperState extends State<AppWrapper> with WindowListener {
     super.dispose();
   }
 
-  // Evitar que el usuario haga la ventana más pequeña del mínimo
   @override
   void onWindowResize() async {
     final size = await windowManager.getSize();
@@ -101,19 +117,41 @@ class _AppWrapperState extends State<AppWrapper> with WindowListener {
   }
 
   Future<void> _verificarActualizaciones() async {
-    final updateInfo = await UpdateService.verificarActualizacion();
-
-    if (updateInfo != null && mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: !updateInfo.required,
-        builder: (context) => UpdateDialog(updateInfo: updateInfo),
-      );
+    try {
+      final updateInfo = await UpdateService.verificarActualizacion();
+      if (updateInfo != null && mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: !updateInfo.required,
+          builder: (context) => UpdateDialog(updateInfo: updateInfo),
+        );
+      }
+    } catch (_) {
+      // Si falla la verificación (sin internet, URL no existe, etc.)
+      // simplemente se ignora — no debe afectar el inicio de la app
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_listo) {
+      return const Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text(
+                'Iniciando...',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return const HomeScreen();
   }
 }

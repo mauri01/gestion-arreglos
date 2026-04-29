@@ -5,6 +5,9 @@ import '../database/database.dart';
 import '../clientes/clientes_screen.dart';
 import '../equipos/equipos_screen.dart';
 import '../ordenes/ordenes_screen.dart';
+import '../services/taller_config_service.dart';
+import 'acerca_de_screen.dart';
+import 'configuracion_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,11 +19,13 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  final List<Widget> _screens = [
-    const DashboardTab(),
+  List<Widget> get _screens => [
+    DashboardTab(onIrAConfiguracion: () => setState(() => _selectedIndex = 4)),
     const OrdenesScreen(),
     const ClientesScreen(),
     const EquiposScreen(),
+    const ConfiguracionScreen(),
+    const AcercaDeScreen(),
   ];
 
   @override
@@ -37,7 +42,33 @@ class _HomeScreenState extends State<HomeScreen> {
               });
             },
             labelType: NavigationRailLabelType.all,
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+            backgroundColor:
+            Theme.of(context).colorScheme.surfaceContainerHighest,
+            // ★ Separa Configuración del resto con un divisor y un Spacer
+            leading: const SizedBox(height: 8),
+            trailing: Expanded(
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Divider(indent: 8, endIndent: 8),
+                      _ConfigRailButton(
+                        selected: _selectedIndex == 4,
+                        onTap: () => setState(() => _selectedIndex = 4),
+                      ),
+                      const SizedBox(height: 4),
+                      _AcercaDeRailButton(
+                        selected: _selectedIndex == 5,
+                        onTap: () => setState(() => _selectedIndex = 5),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
             destinations: const [
               NavigationRailDestination(
                 icon: Icon(Icons.dashboard_outlined),
@@ -59,6 +90,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 selectedIcon: Icon(Icons.devices),
                 label: Text('Equipos'),
               ),
+              // Destino ficticio índice 4 (Configuración) — oculto visualmente
+              NavigationRailDestination(
+                icon: Opacity(opacity: 0, child: Icon(Icons.settings)),
+                label: Text(''),
+                disabled: true,
+              ),
+              // Destino ficticio índice 5 (Acerca de) — oculto visualmente
+              NavigationRailDestination(
+                icon: Opacity(opacity: 0, child: Icon(Icons.favorite)),
+                label: Text(''),
+                disabled: true,
+              ),
             ],
           ),
           const VerticalDivider(thickness: 1, width: 1),
@@ -72,11 +115,133 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ==========================================
+// ─────────────────────────────────────────────
+// BOTÓN CONFIGURACIÓN AL PIE DEL RAIL
+// ─────────────────────────────────────────────
+class _ConfigRailButton extends StatelessWidget {
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ConfigRailButton({required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected
+        ? Theme.of(context).colorScheme.primary
+        : Colors.grey[600]!;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 72,
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: selected
+            ? BoxDecoration(
+          color: Theme.of(context).colorScheme.secondaryContainer,
+          borderRadius: BorderRadius.circular(12),
+        )
+            : null,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              selected ? Icons.settings : Icons.settings_outlined,
+              color: color,
+              size: 24,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Config.',
+              style: TextStyle(fontSize: 11, color: color),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// BOTÓN ACERCA DE AL PIE DEL RAIL
+// ─────────────────────────────────────────────
+class _AcercaDeRailButton extends StatelessWidget {
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _AcercaDeRailButton({required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected
+        ? Theme.of(context).colorScheme.primary
+        : Colors.grey[600]!;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 72,
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: selected
+            ? BoxDecoration(
+          color: Theme.of(context).colorScheme.secondaryContainer,
+          borderRadius: BorderRadius.circular(12),
+        )
+            : null,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              selected ? Icons.favorite : Icons.favorite_outline,
+              color: color,
+              size: 24,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Acerca de',
+              style: TextStyle(fontSize: 11, color: color),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════
 // TAB DEL DASHBOARD
-// ==========================================
-class DashboardTab extends StatelessWidget {
-  const DashboardTab({super.key});
+// ════════════════════════════════════════════
+class DashboardTab extends StatefulWidget {
+  final VoidCallback onIrAConfiguracion;
+
+  const DashboardTab({super.key, required this.onIrAConfiguracion});
+
+  @override
+  State<DashboardTab> createState() => _DashboardTabState();
+}
+
+class _DashboardTabState extends State<DashboardTab> {
+  TallerConfig? _config;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarConfig();
+  }
+
+  @override
+  void didUpdateWidget(covariant DashboardTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Recargar config cada vez que el dashboard vuelve a mostrarse
+    _cargarConfig();
+  }
+
+  Future<void> _cargarConfig() async {
+    final config = await TallerConfigService.cargar();
+    if (mounted) setState(() => _config = config);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -92,14 +257,21 @@ class DashboardTab extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Título
             Text(
               'Resumen General',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+
+            // ── BANNER: taller sin configurar ──────────────────────────────
+            if (_config != null && !_config!.estaConfigurado)
+              _BannerConfiguracion(
+                onIrAConfiguracion: widget.onIrAConfiguracion,
+              ),
+
+            const SizedBox(height: 16),
 
             // Tarjetas de estadísticas
             GridView.count(
@@ -110,7 +282,6 @@ class DashboardTab extends StatelessWidget {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               children: [
-                // Órdenes Pendientes
                 FutureBuilder<List<Ordene>>(
                   future: database.obtenerOrdenesPorEstado('pendiente'),
                   builder: (context, snapshot) {
@@ -123,8 +294,6 @@ class DashboardTab extends StatelessWidget {
                     );
                   },
                 ),
-
-                // Órdenes En Proceso
                 FutureBuilder<List<Ordene>>(
                   future: database.obtenerOrdenesPorEstado('en_proceso'),
                   builder: (context, snapshot) {
@@ -137,8 +306,6 @@ class DashboardTab extends StatelessWidget {
                     );
                   },
                 ),
-
-                // Total Clientes
                 FutureBuilder<List<Cliente>>(
                   future: database.obtenerTodosLosClientes(),
                   builder: (context, snapshot) {
@@ -151,8 +318,6 @@ class DashboardTab extends StatelessWidget {
                     );
                   },
                 ),
-
-                // Total Equipos
                 FutureBuilder<List<Equipo>>(
                   future: database.obtenerTodosLosEquipos(),
                   builder: (context, snapshot) {
@@ -170,7 +335,6 @@ class DashboardTab extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            // Órdenes recientes
             Text(
               'Órdenes Recientes',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -192,18 +356,12 @@ class DashboardTab extends StatelessWidget {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            Icons.inbox_outlined,
-                            size: 64,
-                            color: Colors.grey[400],
-                          ),
+                          Icon(Icons.inbox_outlined,
+                              size: 64, color: Colors.grey[400]),
                           const SizedBox(height: 16),
                           Text(
                             'No hay órdenes registradas',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 16,
-                            ),
+                            style: TextStyle(color: Colors.grey[600], fontSize: 16),
                           ),
                         ],
                       ),
@@ -222,8 +380,10 @@ class DashboardTab extends StatelessWidget {
                           child: Row(
                             children: [
                               CircleAvatar(
-                                backgroundColor: _getColorForEstado(ordenCompleta.orden.estado),
-                                child: const Icon(Icons.assignment, color: Colors.white),
+                                backgroundColor: _getColorForEstado(
+                                    ordenCompleta.orden.estado),
+                                child: const Icon(Icons.assignment,
+                                    color: Colors.white),
                               ),
                               const SizedBox(width: 16),
                               Expanded(
@@ -232,18 +392,22 @@ class DashboardTab extends StatelessWidget {
                                   children: [
                                     Text(
                                       'Orden #${ordenCompleta.orden.id} - ${ordenCompleta.cliente.nombre}',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       '${ordenCompleta.equipo.tipo} ${ordenCompleta.equipo.marca ?? ""}',
-                                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                                      style: TextStyle(
+                                          color: Colors.grey[600], fontSize: 13),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
                                       ordenCompleta.orden.estado.toUpperCase(),
                                       style: TextStyle(
-                                        color: _getColorForEstado(ordenCompleta.orden.estado),
+                                        color: _getColorForEstado(
+                                            ordenCompleta.orden.estado),
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -255,7 +419,7 @@ class DashboardTab extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
                                   Text(
-                                    '${ordenCompleta.orden.costo.toStringAsFixed(2)}',
+                                    '\$${ordenCompleta.orden.costo.toStringAsFixed(2)}',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,
@@ -270,7 +434,8 @@ class DashboardTab extends StatelessWidget {
                                     icon: const Icon(Icons.visibility, size: 16),
                                     label: const Text('Ver Detalle'),
                                     style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 8),
                                     ),
                                   ),
                                 ],
@@ -308,12 +473,89 @@ class DashboardTab extends StatelessWidget {
   void _abrirDetalleOrden(BuildContext context, OrdenCompleta ordenCompleta) {
     showDialog(
       context: context,
-      builder: (context) => _DetalleOrdenSimpleDialog(ordenCompleta: ordenCompleta),
+      builder: (context) =>
+          _DetalleOrdenSimpleDialog(ordenCompleta: ordenCompleta),
     );
   }
 }
 
-// Diálogo simple para ver detalle de orden desde el Dashboard
+// ════════════════════════════════════════════
+// BANNER: TALLER SIN CONFIGURAR
+// ════════════════════════════════════════════
+class _BannerConfiguracion extends StatelessWidget {
+  final VoidCallback onIrAConfiguracion;
+
+  const _BannerConfiguracion({required this.onIrAConfiguracion});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange[700]!, Colors.orange[500]!],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.store, color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 16),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '¡Configurá los datos de tu taller!',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Tu nombre, teléfono y dirección aparecerán en los comprobantes.',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          FilledButton.icon(
+            onPressed: onIrAConfiguracion,
+            icon: const Icon(Icons.settings, size: 18),
+            label: const Text('Configurar ahora'),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.orange[700],
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Diálogo simple de detalle desde Dashboard ─────────────────────────────────
 class _DetalleOrdenSimpleDialog extends StatelessWidget {
   final OrdenCompleta ordenCompleta;
 
@@ -332,7 +574,6 @@ class _DetalleOrdenSimpleDialog extends StatelessWidget {
         height: 600,
         child: Column(
           children: [
-            // Header
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
@@ -343,7 +584,8 @@ class _DetalleOrdenSimpleDialog extends StatelessWidget {
                   CircleAvatar(
                     radius: 30,
                     backgroundColor: _getColorForEstado(orden.estado),
-                    child: const Icon(Icons.assignment, size: 30, color: Colors.white),
+                    child: const Icon(Icons.assignment,
+                        size: 30, color: Colors.white),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -352,51 +594,82 @@ class _DetalleOrdenSimpleDialog extends StatelessWidget {
                       children: [
                         Text(
                           'Orden #${orden.id}',
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(
                             color: _getColorForEstado(orden.estado),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
                             orden.estado.toUpperCase(),
-                            style: const TextStyle(color: Colors.white, fontSize: 12),
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 12),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                  IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context)),
                 ],
               ),
             ),
-            // Contenido
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Información General', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                    Text('Información General',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
                     _buildInfoCard(Icons.person, 'Cliente', cliente.nombre),
-                    _buildInfoCard(Icons.devices, 'Equipo', '${equipo.tipo} ${equipo.marca ?? ""} ${equipo.modelo ?? ""}'),
-                    _buildInfoCard(Icons.calendar_today, 'Fecha de Ingreso', DateFormat('dd/MM/yyyy HH:mm').format(orden.fechaIngreso)),
+                    _buildInfoCard(Icons.devices, 'Equipo',
+                        '${equipo.tipo} ${equipo.marca ?? ""} ${equipo.modelo ?? ""}'),
+                    _buildInfoCard(
+                        Icons.calendar_today,
+                        'Fecha de Ingreso',
+                        DateFormat('dd/MM/yyyy HH:mm')
+                            .format(orden.fechaIngreso)),
                     if (orden.fechaEntrega != null)
-                      _buildInfoCard(Icons.event_available, 'Fecha de Entrega', DateFormat('dd/MM/yyyy HH:mm').format(orden.fechaEntrega!)),
+                      _buildInfoCard(
+                          Icons.event_available,
+                          'Fecha de Entrega',
+                          DateFormat('dd/MM/yyyy HH:mm')
+                              .format(orden.fechaEntrega!)),
                     const SizedBox(height: 24),
-                    Text('Detalles del Servicio', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                    Text('Detalles del Servicio',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
-                    if (orden.diagnostico != null && orden.diagnostico!.isNotEmpty)
-                      _buildDetailCard('Diagnóstico', Icons.search, orden.diagnostico!),
+                    if (orden.diagnostico != null &&
+                        orden.diagnostico!.isNotEmpty)
+                      _buildDetailCard(
+                          'Diagnóstico', Icons.search, orden.diagnostico!),
                     if (orden.solucion != null && orden.solucion!.isNotEmpty)
                       _buildDetailCard('Solución', Icons.build, orden.solucion!),
-                    if (orden.observaciones != null && orden.observaciones!.isNotEmpty)
-                      _buildDetailCard('Observaciones', Icons.notes, orden.observaciones!),
+                    if (orden.observaciones != null &&
+                        orden.observaciones!.isNotEmpty)
+                      _buildDetailCard(
+                          'Observaciones', Icons.notes, orden.observaciones!),
                     const SizedBox(height: 24),
-                    Text('Historial', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                    Text('Historial',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
                     FutureBuilder<List<HistorialData>>(
                       future: database.obtenerHistorialPorOrden(orden.id),
@@ -414,7 +687,13 @@ class _DetalleOrdenSimpleDialog extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     if (h.detalles != null) Text(h.detalles!),
-                                    Text(DateFormat('dd/MM/yyyy HH:mm').format(h.fecha), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                                    Text(
+                                      DateFormat('dd/MM/yyyy HH:mm')
+                                          .format(h.fecha),
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600]),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -435,11 +714,16 @@ class _DetalleOrdenSimpleDialog extends StatelessWidget {
 
   Color _getColorForEstado(String estado) {
     switch (estado) {
-      case 'pendiente': return Colors.orange;
-      case 'en_proceso': return Colors.blue;
-      case 'finalizada': return Colors.green;
-      case 'entregada': return Colors.grey;
-      default: return Colors.grey;
+      case 'pendiente':
+        return Colors.orange;
+      case 'en_proceso':
+        return Colors.blue;
+      case 'finalizada':
+        return Colors.green;
+      case 'entregada':
+        return Colors.grey;
+      default:
+        return Colors.grey;
     }
   }
 
@@ -453,7 +737,9 @@ class _DetalleOrdenSimpleDialog extends StatelessWidget {
             Icon(icon, size: 20, color: Colors.grey[600]),
             const SizedBox(width: 12),
             Text('$label: ', style: TextStyle(color: Colors.grey[600])),
-            Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500))),
+            Expanded(
+                child: Text(value,
+                    style: const TextStyle(fontWeight: FontWeight.w500))),
           ],
         ),
       ),
@@ -484,9 +770,9 @@ class _DetalleOrdenSimpleDialog extends StatelessWidget {
   }
 }
 
-// ==========================================
+// ════════════════════════════════════════════
 // WIDGET: TARJETA DE ESTADÍSTICA
-// ==========================================
+// ════════════════════════════════════════════
 class _StatCard extends StatelessWidget {
   final String title;
   final String value;

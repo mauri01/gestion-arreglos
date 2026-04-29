@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:intl/intl.dart';
 import '../../database/database.dart';
+import '../../services/comprobante_service.dart'; // ← NUEVO
 
 class OrdenesScreen extends StatefulWidget {
   const OrdenesScreen({super.key});
@@ -101,9 +102,7 @@ class _OrdenesScreenState extends State<OrdenesScreen> {
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 child: InkWell(
-                  onTap: () {
-                    _mostrarDetalleOrden(context, ordenCompleta);
-                  },
+                  onTap: () => _mostrarDetalleOrden(context, ordenCompleta),
                   borderRadius: BorderRadius.circular(12),
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -113,9 +112,11 @@ class _OrdenesScreenState extends State<OrdenesScreen> {
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color: _getColorForEstado(orden.estado).withOpacity(0.1),
+                                color: _getColorForEstado(orden.estado)
+                                    .withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
                                   color: _getColorForEstado(orden.estado),
@@ -134,7 +135,8 @@ class _OrdenesScreenState extends State<OrdenesScreen> {
                             const SizedBox(width: 12),
                             Text(
                               'Orden #${orden.id}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 16),
                             ),
                             const Spacer(),
                             Text(
@@ -166,19 +168,23 @@ class _OrdenesScreenState extends State<OrdenesScreen> {
                             const Icon(Icons.devices, size: 18, color: Colors.grey),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Text('${equipo.tipo} ${equipo.marca ?? ""} ${equipo.modelo ?? ""}'),
+                              child: Text(
+                                  '${equipo.tipo} ${equipo.marca ?? ""} ${equipo.modelo ?? ""}'),
                             ),
                           ],
                         ),
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
+                            const Icon(Icons.calendar_today,
+                                size: 18, color: Colors.grey),
                             const SizedBox(width: 8),
-                            Text(DateFormat('dd/MM/yyyy HH:mm').format(orden.fechaIngreso)),
+                            Text(DateFormat('dd/MM/yyyy HH:mm')
+                                .format(orden.fechaIngreso)),
                           ],
                         ),
-                        if (orden.diagnostico != null && orden.diagnostico!.isNotEmpty) ...[
+                        if (orden.diagnostico != null &&
+                            orden.diagnostico!.isNotEmpty) ...[
                           const SizedBox(height: 12),
                           Text(
                             orden.diagnostico!,
@@ -188,32 +194,42 @@ class _OrdenesScreenState extends State<OrdenesScreen> {
                           ),
                         ],
                         const SizedBox(height: 12),
+                        // ── FILA DE ACCIONES ──────────────────────────────
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
+                            // ★ BOTÓN IMPRIMIR COMPROBANTE (nuevo)
                             TextButton.icon(
-                              onPressed: () {
-                                _mostrarDialogoCambiarEstado(context, orden);
-                              },
+                              onPressed: () =>
+                                  _imprimirComprobante(context, ordenCompleta),
+                              icon: const Icon(Icons.print, size: 18),
+                              label: const Text('Comprobante'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.teal,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            TextButton.icon(
+                              onPressed: () =>
+                                  _mostrarDialogoCambiarEstado(context, orden),
                               icon: const Icon(Icons.flag, size: 18),
                               label: const Text('Cambiar Estado'),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 4),
                             TextButton.icon(
-                              onPressed: () {
-                                _mostrarDialogoOrden(context, ordenCompleta: ordenCompleta);
-                              },
+                              onPressed: () => _mostrarDialogoOrden(context,
+                                  ordenCompleta: ordenCompleta),
                               icon: const Icon(Icons.edit, size: 18),
                               label: const Text('Editar'),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 4),
                             TextButton.icon(
-                              onPressed: () {
-                                _confirmarEliminar(context, orden, cliente.nombre);
-                              },
+                              onPressed: () => _confirmarEliminar(
+                                  context, orden, cliente.nombre),
                               icon: const Icon(Icons.delete, size: 18),
                               label: const Text('Eliminar'),
-                              style: TextButton.styleFrom(foregroundColor: Colors.red),
+                              style: TextButton.styleFrom(
+                                  foregroundColor: Colors.red),
                             ),
                           ],
                         ),
@@ -227,13 +243,30 @@ class _OrdenesScreenState extends State<OrdenesScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          _mostrarDialogoOrden(context);
-        },
+        onPressed: () => _mostrarDialogoOrden(context),
         icon: const Icon(Icons.add),
         label: const Text('Nueva Orden'),
       ),
     );
+  }
+
+  // ── IMPRIMIR COMPROBANTE ────────────────────────────────────────────────
+  Future<void> _imprimirComprobante(
+      BuildContext context, OrdenCompleta ordenCompleta) async {
+    try {
+      await ComprobanteService.generarYMostrarComprobante(
+        ordenCompleta: ordenCompleta,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al generar comprobante: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Color _getColorForEstado(String estado) {
@@ -270,35 +303,31 @@ class _OrdenesScreenState extends State<OrdenesScreen> {
     showDialog(
       context: context,
       builder: (context) => OrdenDialog(ordenCompleta: ordenCompleta),
-    ).then((_) {
-      setState(() {});
-    });
+    ).then((_) => setState(() {}));
   }
 
   void _mostrarDetalleOrden(BuildContext context, OrdenCompleta ordenCompleta) {
     showDialog(
       context: context,
       builder: (context) => DetalleOrdenDialog(ordenCompleta: ordenCompleta),
-    ).then((_) {
-      setState(() {});
-    });
+    ).then((_) => setState(() {}));
   }
 
   void _mostrarDialogoCambiarEstado(BuildContext context, Ordene orden) {
     showDialog(
       context: context,
       builder: (context) => CambiarEstadoDialog(orden: orden),
-    ).then((_) {
-      setState(() {});
-    });
+    ).then((_) => setState(() {}));
   }
 
-  void _confirmarEliminar(BuildContext context, Ordene orden, String nombreCliente) {
+  void _confirmarEliminar(
+      BuildContext context, Ordene orden, String nombreCliente) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirmar eliminación'),
-        content: Text('¿Estás seguro de eliminar la Orden #${orden.id}?\nCliente: $nombreCliente'),
+        content: Text(
+            '¿Estás seguro de eliminar la Orden #${orden.id}?\nCliente: $nombreCliente'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -306,7 +335,8 @@ class _OrdenesScreenState extends State<OrdenesScreen> {
           ),
           FilledButton(
             onPressed: () async {
-              final database = Provider.of<AppDatabase>(context, listen: false);
+              final database =
+              Provider.of<AppDatabase>(context, listen: false);
               await database.eliminarOrden(orden.id);
               if (context.mounted) {
                 Navigator.pop(context);
@@ -325,7 +355,9 @@ class _OrdenesScreenState extends State<OrdenesScreen> {
   }
 }
 
+// ════════════════════════════════════════════
 // DIÁLOGO PARA AGREGAR/EDITAR ORDEN
+// ════════════════════════════════════════════
 class OrdenDialog extends StatefulWidget {
   final OrdenCompleta? ordenCompleta;
 
@@ -350,10 +382,14 @@ class _OrdenDialogState extends State<OrdenDialog> {
   @override
   void initState() {
     super.initState();
-    _diagnosticoController = TextEditingController(text: widget.ordenCompleta?.orden.diagnostico ?? '');
-    _solucionController = TextEditingController(text: widget.ordenCompleta?.orden.solucion ?? '');
-    _costoController = TextEditingController(text: widget.ordenCompleta?.orden.costo.toString() ?? '0');
-    _observacionesController = TextEditingController(text: widget.ordenCompleta?.orden.observaciones ?? '');
+    _diagnosticoController =
+        TextEditingController(text: widget.ordenCompleta?.orden.diagnostico ?? '');
+    _solucionController =
+        TextEditingController(text: widget.ordenCompleta?.orden.solucion ?? '');
+    _costoController = TextEditingController(
+        text: widget.ordenCompleta?.orden.costo.toString() ?? '0');
+    _observacionesController =
+        TextEditingController(text: widget.ordenCompleta?.orden.observaciones ?? '');
 
     if (widget.ordenCompleta != null) {
       _estadoSeleccionado = widget.ordenCompleta!.orden.estado;
@@ -430,14 +466,12 @@ class _OrdenDialogState extends State<OrdenDialog> {
                       final cliente = _clientesMap[equipo.clienteId];
                       return DropdownMenuItem(
                         value: equipo.id,
-                        child: Text('${equipo.tipo} ${equipo.marca ?? ""} - ${cliente?.nombre ?? ""}'),
+                        child: Text(
+                            '${equipo.tipo} ${equipo.marca ?? ""} - ${cliente?.nombre ?? ""}'),
                       );
                     }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _equipoSeleccionado = value;
-                      });
-                    },
+                    onChanged: (value) =>
+                        setState(() => _equipoSeleccionado = value),
                     validator: (value) {
                       if (value == null) return 'Selecciona un equipo';
                       return null;
@@ -456,11 +490,8 @@ class _OrdenDialogState extends State<OrdenDialog> {
                     DropdownMenuItem(value: 'finalizada', child: Text('Finalizada')),
                     DropdownMenuItem(value: 'entregada', child: Text('Entregada')),
                   ],
-                  onChanged: (value) {
-                    setState(() {
-                      _estadoSeleccionado = value!;
-                    });
-                  },
+                  onChanged: (value) =>
+                      setState(() => _estadoSeleccionado = value!),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -538,12 +569,17 @@ class _OrdenDialogState extends State<OrdenDialog> {
         OrdenesCompanion(
           equipoId: drift.Value(_equipoSeleccionado!),
           estado: drift.Value(_estadoSeleccionado),
-          diagnostico: drift.Value(_diagnosticoController.text.isEmpty ? null : _diagnosticoController.text),
-          solucion: drift.Value(_solucionController.text.isEmpty ? null : _solucionController.text),
+          diagnostico: drift.Value(_diagnosticoController.text.isEmpty
+              ? null
+              : _diagnosticoController.text),
+          solucion: drift.Value(
+              _solucionController.text.isEmpty ? null : _solucionController.text),
           costo: drift.Value(costo),
-          observaciones: drift.Value(_observacionesController.text.isEmpty ? null : _observacionesController.text),
-          // Si se crea con estado "entregada", registrar fecha de entrega
-          fechaEntrega: drift.Value(_estadoSeleccionado == 'entregada' ? DateTime.now() : null),
+          observaciones: drift.Value(_observacionesController.text.isEmpty
+              ? null
+              : _observacionesController.text),
+          fechaEntrega: drift.Value(
+              _estadoSeleccionado == 'entregada' ? DateTime.now() : null),
         ),
       );
 
@@ -564,12 +600,10 @@ class _OrdenDialogState extends State<OrdenDialog> {
     } else {
       final ordenAnterior = widget.ordenCompleta!.orden;
 
-      // Si cambia a "entregada" y no tenía fecha, registrarla
       DateTime? fechaEntrega = ordenAnterior.fechaEntrega;
       if (_estadoSeleccionado == 'entregada' && fechaEntrega == null) {
         fechaEntrega = DateTime.now();
       }
-      // Si cambia de "entregada" a otro estado, limpiar la fecha
       if (_estadoSeleccionado != 'entregada') {
         fechaEntrega = null;
       }
@@ -578,10 +612,16 @@ class _OrdenDialogState extends State<OrdenDialog> {
         ordenAnterior.copyWith(
           equipoId: _equipoSeleccionado!,
           estado: _estadoSeleccionado,
-          diagnostico: drift.Value(_diagnosticoController.text.isEmpty ? null : _diagnosticoController.text),
-          solucion: drift.Value(_solucionController.text.isEmpty ? null : _solucionController.text),
+          diagnostico: drift.Value(_diagnosticoController.text.isEmpty
+              ? null
+              : _diagnosticoController.text),
+          solucion: drift.Value(_solucionController.text.isEmpty
+              ? null
+              : _solucionController.text),
           costo: costo,
-          observaciones: drift.Value(_observacionesController.text.isEmpty ? null : _observacionesController.text),
+          observaciones: drift.Value(_observacionesController.text.isEmpty
+              ? null
+              : _observacionesController.text),
           fechaEntrega: drift.Value(fechaEntrega),
         ),
       );
@@ -591,7 +631,8 @@ class _OrdenDialogState extends State<OrdenDialog> {
           HistorialCompanion(
             ordenId: drift.Value(ordenAnterior.id),
             accion: const drift.Value('Cambio de estado'),
-            detalles: drift.Value('De ${ordenAnterior.estado} a $_estadoSeleccionado'),
+            detalles:
+            drift.Value('De ${ordenAnterior.estado} a $_estadoSeleccionado'),
           ),
         );
       }
@@ -606,7 +647,9 @@ class _OrdenDialogState extends State<OrdenDialog> {
   }
 }
 
+// ════════════════════════════════════════════
 // DIÁLOGO PARA CAMBIAR ESTADO RÁPIDO
+// ════════════════════════════════════════════
 class CambiarEstadoDialog extends StatefulWidget {
   final Ordene orden;
 
@@ -632,11 +675,14 @@ class _CambiarEstadoDialogState extends State<CambiarEstadoDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildEstadoOption('pendiente', 'Pendiente', Icons.pending_actions, Colors.orange),
+          _buildEstadoOption(
+              'pendiente', 'Pendiente', Icons.pending_actions, Colors.orange),
           const SizedBox(height: 8),
-          _buildEstadoOption('en_proceso', 'En Proceso', Icons.build, Colors.blue),
+          _buildEstadoOption(
+              'en_proceso', 'En Proceso', Icons.build, Colors.blue),
           const SizedBox(height: 8),
-          _buildEstadoOption('finalizada', 'Finalizada', Icons.check_circle, Colors.green),
+          _buildEstadoOption(
+              'finalizada', 'Finalizada', Icons.check_circle, Colors.green),
           const SizedBox(height: 8),
           _buildEstadoOption('entregada', 'Entregada', Icons.done_all, Colors.grey),
         ],
@@ -654,14 +700,11 @@ class _CambiarEstadoDialogState extends State<CambiarEstadoDialog> {
     );
   }
 
-  Widget _buildEstadoOption(String estado, String label, IconData icon, Color color) {
+  Widget _buildEstadoOption(
+      String estado, String label, IconData icon, Color color) {
     final isSelected = _estadoSeleccionado == estado;
     return InkWell(
-      onTap: () {
-        setState(() {
-          _estadoSeleccionado = estado;
-        });
-      },
+      onTap: () => setState(() => _estadoSeleccionado = estado),
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -677,7 +720,10 @@ class _CambiarEstadoDialogState extends State<CambiarEstadoDialog> {
           children: [
             Icon(icon, color: color),
             const SizedBox(width: 12),
-            Text(label, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+            Text(label,
+                style: TextStyle(
+                    fontWeight:
+                    isSelected ? FontWeight.bold : FontWeight.normal)),
             const Spacer(),
             if (isSelected) Icon(Icons.check_circle, color: color),
           ],
@@ -693,23 +739,28 @@ class _CambiarEstadoDialogState extends State<CambiarEstadoDialog> {
     }
 
     final database = Provider.of<AppDatabase>(context, listen: false);
-    await database.actualizarOrden(widget.orden.copyWith(estado: _estadoSeleccionado));
+    await database.actualizarOrden(
+        widget.orden.copyWith(estado: _estadoSeleccionado));
     await database.insertarHistorial(
       HistorialCompanion(
         ordenId: drift.Value(widget.orden.id),
         accion: const drift.Value('Cambio de estado'),
-        detalles: drift.Value('De ${widget.orden.estado} a $_estadoSeleccionado'),
+        detalles: drift.Value(
+            'De ${widget.orden.estado} a $_estadoSeleccionado'),
       ),
     );
 
     if (mounted) {
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Estado actualizado')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Estado actualizado')));
     }
   }
 }
 
+// ════════════════════════════════════════════
 // DIÁLOGO DE DETALLE DE LA ORDEN
+// ════════════════════════════════════════════
 class DetalleOrdenDialog extends StatelessWidget {
   final OrdenCompleta ordenCompleta;
 
@@ -738,7 +789,8 @@ class DetalleOrdenDialog extends StatelessWidget {
                   CircleAvatar(
                     radius: 30,
                     backgroundColor: _getColorForEstado(orden.estado),
-                    child: const Icon(Icons.assignment, size: 30, color: Colors.white),
+                    child: const Icon(Icons.assignment,
+                        size: 30, color: Colors.white),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -747,17 +799,22 @@ class DetalleOrdenDialog extends StatelessWidget {
                       children: [
                         Text(
                           'Orden #${orden.id}',
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(
                             color: _getColorForEstado(orden.estado),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
                             orden.estado.toUpperCase(),
-                            style: const TextStyle(color: Colors.white, fontSize: 12),
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 12),
                           ),
                         ),
                       ],
@@ -765,9 +822,26 @@ class DetalleOrdenDialog extends StatelessWidget {
                   ),
                   Text(
                     '\$${orden.costo.toStringAsFixed(2)}',
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.green),
+                    style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green),
                   ),
-                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                  const SizedBox(width: 8),
+                  // ★ Botón imprimir en detalle también
+                  IconButton(
+                    icon: const Icon(Icons.print, color: Colors.teal),
+                    tooltip: 'Imprimir comprobante',
+                    onPressed: () async {
+                      await ComprobanteService.generarYMostrarComprobante(
+                        ordenCompleta: ordenCompleta,
+                      );
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
                 ],
               ),
             ),
@@ -777,24 +851,41 @@ class DetalleOrdenDialog extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Información General', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                    Text('Información General',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
                     _buildInfoCard(Icons.person, 'Cliente', cliente.nombre),
-                    _buildInfoCard(Icons.devices, 'Equipo', '${equipo.tipo} ${equipo.marca ?? ""} ${equipo.modelo ?? ""}'),
-                    _buildInfoCard(Icons.calendar_today, 'Fecha de Ingreso', DateFormat('dd/MM/yyyy HH:mm').format(orden.fechaIngreso)),
+                    _buildInfoCard(Icons.devices, 'Equipo',
+                        '${equipo.tipo} ${equipo.marca ?? ""} ${equipo.modelo ?? ""}'),
+                    _buildInfoCard(Icons.calendar_today, 'Fecha de Ingreso',
+                        DateFormat('dd/MM/yyyy HH:mm').format(orden.fechaIngreso)),
                     if (orden.fechaEntrega != null)
-                      _buildInfoCard(Icons.event_available, 'Fecha de Entrega', DateFormat('dd/MM/yyyy HH:mm').format(orden.fechaEntrega!)),
+                      _buildInfoCard(Icons.event_available, 'Fecha de Entrega',
+                          DateFormat('dd/MM/yyyy HH:mm').format(orden.fechaEntrega!)),
                     const SizedBox(height: 24),
-                    Text('Detalles del Servicio', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                    Text('Detalles del Servicio',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
                     if (orden.diagnostico != null && orden.diagnostico!.isNotEmpty)
                       _buildDetailCard('Diagnóstico', Icons.search, orden.diagnostico!),
                     if (orden.solucion != null && orden.solucion!.isNotEmpty)
                       _buildDetailCard('Solución', Icons.build, orden.solucion!),
-                    if (orden.observaciones != null && orden.observaciones!.isNotEmpty)
-                      _buildDetailCard('Observaciones', Icons.notes, orden.observaciones!),
+                    if (orden.observaciones != null &&
+                        orden.observaciones!.isNotEmpty)
+                      _buildDetailCard(
+                          'Observaciones', Icons.notes, orden.observaciones!),
                     const SizedBox(height: 24),
-                    Text('Historial', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                    Text('Historial',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
                     FutureBuilder<List<HistorialData>>(
                       future: database.obtenerHistorialPorOrden(orden.id),
@@ -812,7 +903,11 @@ class DetalleOrdenDialog extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     if (h.detalles != null) Text(h.detalles!),
-                                    Text(DateFormat('dd/MM/yyyy HH:mm').format(h.fecha), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                                    Text(
+                                      DateFormat('dd/MM/yyyy HH:mm').format(h.fecha),
+                                      style: TextStyle(
+                                          fontSize: 12, color: Colors.grey[600]),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -833,11 +928,16 @@ class DetalleOrdenDialog extends StatelessWidget {
 
   Color _getColorForEstado(String estado) {
     switch (estado) {
-      case 'pendiente': return Colors.orange;
-      case 'en_proceso': return Colors.blue;
-      case 'finalizada': return Colors.green;
-      case 'entregada': return Colors.grey;
-      default: return Colors.grey;
+      case 'pendiente':
+        return Colors.orange;
+      case 'en_proceso':
+        return Colors.blue;
+      case 'finalizada':
+        return Colors.green;
+      case 'entregada':
+        return Colors.grey;
+      default:
+        return Colors.grey;
     }
   }
 
@@ -851,7 +951,9 @@ class DetalleOrdenDialog extends StatelessWidget {
             Icon(icon, size: 20, color: Colors.grey[600]),
             const SizedBox(width: 12),
             Text('$label: ', style: TextStyle(color: Colors.grey[600])),
-            Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500))),
+            Expanded(
+                child: Text(value,
+                    style: const TextStyle(fontWeight: FontWeight.w500))),
           ],
         ),
       ),

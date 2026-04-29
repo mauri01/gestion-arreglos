@@ -1,11 +1,11 @@
 [Setup]
 AppName=Gestión de Arreglos
-AppVersion=1.0.0
+AppVersion=1.1.0
 AppPublisher=Tu Nombre
 DefaultDirName={autopf}\GestionArreglos
 DefaultGroupName=Gestión de Arreglos
 OutputDir=installer_output
-OutputBaseFilename=gestion_arreglos_setup_v1.0.0
+OutputBaseFilename=gestion_arreglos_setup_v1.1.0
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
